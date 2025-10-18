@@ -4,7 +4,7 @@
     name: "{{ db_name }}"
     state: present
     login_host: "{{ inventory_hostname }}"
-    login_user: "{{ rds_admin_user }}"
+    login_user: root
     login_password: "{{ vault_rds_password }}"
 
 - name: Create RDS user
@@ -15,5 +15,5 @@
     host: "%"
     state: present
     login_host: "{{ inventory_hostname }}"
-    login_user: "{{ rds_admin_user }}"
+    login_user: root
     login_password: "{{ vault_rds_password }}"
