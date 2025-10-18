@@ -1,0 +1,7 @@
+---
+# Default variables for RDS setup
+
+db_name: bankappdb
+db_user: root
+db_password: "{{ vault_rds_password }}"
+db_admin_user: admin
