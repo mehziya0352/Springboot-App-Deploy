@@ -233,8 +233,8 @@ resource "aws_db_subnet_group" "mysql_subnets" {
 resource "aws_db_instance" "mysql" {
   allocated_storage      = 20
   engine                 = "mysql"
-  engine_version         = "8.0"
-  instance_class         = "db.t2.micro"
+  engine_version         = "8.0.32"
+  instance_class         = "db.t3.medium"  # Multi-AZ supported
   username               = var.db_user
   password               = var.db_password
   multi_az               = true
@@ -243,6 +243,7 @@ resource "aws_db_instance" "mysql" {
   vpc_security_group_ids = [aws_security_group.mysql_sg.id]
   skip_final_snapshot    = true
 }
+
 
 # ----------------------------
 # Outputs
