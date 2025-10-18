@@ -14,5 +14,5 @@ else:
     first = next(iter(obj.values()))
     ip = first.get('value')
 
-print("[all]")
+print("[app]")
 print(f"{ip} ansible_user=ubuntu")
