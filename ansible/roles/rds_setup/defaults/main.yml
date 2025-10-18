@@ -3,5 +3,5 @@
 
 db_name: bankappdb
 db_user: bankuser
-db_password: "{{ vault_rds_password }}"
+db_password: Test12345
 db_admin_user: root
