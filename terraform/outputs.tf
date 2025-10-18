@@ -1,7 +1,7 @@
 # ----------------------------
 # Outputs
 # ----------------------------
-output "ec2_public_ip" {
+output "app_public_ip" {
   description = "Public IP of the builder instance (SSH here to run Ansible)"
   value       = aws_instance.builder.public_ip
 }
