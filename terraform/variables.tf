@@ -1,16 +1,30 @@
-variable "region" { default = "us-east-1" }
-variable "instance_type" { default = "t2.micro" }
-variable "key_name" { 
-    type = string 
-    default = "mujahed"
-}
-variable "db_user" {
+variable "region" {
   type        = string
-  description = "Username for RDS MySQL"
-  default     = "admin"   # optional, can override
+  description = "AWS region"
+  default     = "us-east-1"
+}
+
+variable "instance_type" {
+  type    = string
+  default = "t3.small"
+}
+
+variable "key_name" {
+  type        = string
+  description = "EC2 key pair name (must exist in AWS)"
+}
+
+variable "db_name" {
+  type    = string
+  default = "bankappdb"
+}
+
+variable "db_user" {
+  type    = string
+  default = "root"
 }
 
 variable "db_password" {
-    type = string 
-    default = "adminroot"
+  type      = string
+  description = "RDS master password (sensitive)"
 }
