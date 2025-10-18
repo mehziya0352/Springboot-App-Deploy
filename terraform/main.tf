@@ -229,7 +229,7 @@ resource "aws_db_instance" "mysql" {
   engine                 = "mysql"
   engine_version         = "8.0.39"           # works in us-east-1; adjust if needed
   instance_class         = "db.t3.medium"
-  name                   = var.db_name
+  db_name                = var.db_name
   username               = var.db_user
   password               = var.db_password
   multi_az               = true
