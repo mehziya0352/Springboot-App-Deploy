@@ -1,0 +1,46 @@
+name: final deploy
+
+on:
+  workflow_dispatch:
+
+env:
+  AWS_REGION: us-east-1
+
+jobs:
+  infra-setup:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Checkout repository
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Step 2: Setup Terraform
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.6"
+
+      # Step 3: Configure AWS credentials
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      # Step 4: Setup Terraform backend (if applicable)
+      - name: Setup Backend
+        run: |
+          chmod +x ./create-backend.sh
+          ./create-backend.sh
+
+      # Step 5: Terraform init
+      - name: Terraform init
+        working-directory: ./terraform/
+        run: terraform init
+
+      # Step 6: Terraform apply
+      - name: Terraform apply
+        working-directory: ./terraform/
+        run: terraform apply -auto-approve -lock=false
