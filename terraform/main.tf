@@ -12,7 +12,7 @@ resource "aws_vpc" "main" {
   enable_dns_support   = true
   enable_dns_hostnames = true
 
-  tags = { Name = "petclinic-vpc" }
+  tags = { Name = "spring-vpc" }
 }
 
 # ----------------------------
@@ -57,7 +57,7 @@ resource "aws_subnet" "private_2" {
 # ----------------------------
 resource "aws_internet_gateway" "igw" {
   vpc_id = aws_vpc.main.id
-  tags   = { Name = "petclinic-igw" }
+  tags   = { Name = "spring-igw" }
 }
 
 resource "aws_route_table" "public_rt" {
