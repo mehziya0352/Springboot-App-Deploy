@@ -305,7 +305,7 @@ resource "aws_db_subnet_group" "mysql_subnets" {
 resource "aws_db_instance" "mysql" {
   allocated_storage      = 20
   engine                 = "mysql"
-  engine_version         = "8.0.32"
+  engine_version         = "8.0.35"
   instance_class         = "db.t3.medium"
   username               = var.db_user
   password               = var.db_password
