@@ -9,6 +9,8 @@ env:
 jobs:
   infra-setup:
     runs-on: ubuntu-latest
+    outputs:
+      app_ip: ${{ steps.app.outputs.app_ip }}
 
     steps:
       # Step 1: Checkout repository
@@ -29,22 +31,17 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-      # Step 4: Setup Terraform backend (if applicable)
-      - name: Setup Backend
-        run: |
-          chmod +x ./create-backend.sh
-          ./create-backend.sh
-
-      # Step 5: Terraform init
+      # Step 4: Terraform init
       - name: Terraform init
         working-directory: ./terraform/
         run: terraform init
 
-      # Step 6: Terraform apply
+      # Step 5: Terraform apply
       - name: Terraform apply
         working-directory: ./terraform/
-        run: terraform destroy -auto-approve -lock=false
+        run: terraform apply -auto-approve -lock=false
 
+      # Step 6: Save Terraform output
       - name: Save Terraform output
         working-directory: ./terraform/
         run: terraform output -json > tfoutput.json
@@ -54,23 +51,72 @@ jobs:
         with:
           name: tfoutput
           path: terraform/tfoutput.json
-  
+
+      - name: Save APP Public IP
+        id: app
+        working-directory: ${{ env.TF_DIR }}
+        run: |
+          APP_IP=$(terraform output -raw app_public_ip)
+          echo "APP_PUBLIC_IP=$APP_IP" >> $GITHUB_ENV
+          echo "app_ip=$APP_IP" >> $GITHUB_OUTPUT
+
+      - name: Upload Terraform output
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfoutput
+          path: ${{ env.TF_DIR }}/tfoutput.json
+  ansible:
+    runs-on: ubuntu-latest
+    needs: infra-setup
+    env:
+      APP_PUBLIC_IP: ${{ needs.infra-setup.outputs.app_ip }}
+    steps:
+      - uses: actions/checkout@v4
+      
+      # Step 7: Setup Python & Ansible
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.11'
-  
+
+      - name: Download Terraform output
+        uses: actions/download-artifact@v4
+        with:
+          name: tfoutput
+          path: terraform/
+
+
       - name: Install Ansible & MySQL collection
         run: |
           python3 -m pip install --upgrade pip
           pip install ansible PyMySQL
           ansible-galaxy collection install community.mysql
-  
+
+      - name: Setup SSH Key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          # Add EC2 to known_hosts
+          until ssh-keyscan -H $APP_PUBLIC_IP >> ~/.ssh/known_hosts 2>/dev/null; do
+            echo "Waiting for SSH to be available..."
+            sleep 15
+          done
+
+      - name: Wait for EC2 SSH to be ready
+        run: |
+          until ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ubuntu@$APP_PUBLIC_IP "echo ready"; do
+            echo "Waiting for EC2 SSH..."
+            sleep 15
+          done
+
+      # Step 8: Generate dynamic Ansible inventory
       - name: Generate Ansible inventory
         run: |
           python3 scripts/tf-to-inventory.py terraform/tfoutput.json > ansible/inventory.ini
           cat ansible/inventory.ini
-  
+
+      # Step 9: Run RDS Setup Playbook
       - name: Run RDS Setup Playbook
         working-directory: ./ansible/
         env:
@@ -78,3 +124,4 @@ jobs:
         run: |
           export ANSIBLE_ROLES_PATH=./roles
           ansible-playbook -i inventory.ini playbooks/rds.yml --private-key ~/.ssh/id_rsa -vv
+
