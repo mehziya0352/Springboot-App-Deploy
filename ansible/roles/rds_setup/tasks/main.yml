@@ -1,11 +1,9 @@
 ---
-# Tasks for creating RDS database and user
-
 - name: Create database
   community.mysql.mysql_db:
     name: "{{ db_name }}"
     state: present
-    login_host: "{{ inventory_hostname }}"
+    login_host: "{{ db_host }}"
     login_user: "{{ db_admin_user }}"
     login_password: "{{ db_password }}"
 
@@ -16,6 +14,6 @@
     priv: "{{ db_name }}.*:ALL"
     host: "%"
     state: present
-    login_host: "{{ inventory_hostname }}"
+    login_host: "{{ db_host }}"
     login_user: "{{ db_admin_user }}"
     login_password: "{{ db_password }}"
