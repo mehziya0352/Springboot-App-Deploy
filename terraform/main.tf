@@ -10,7 +10,7 @@ data "http" "my_ip" {
 }
 
 locals {
-  public_ip_cidr = "${chomp(data.http.my_ip.body)}/32"
+  public_ip_cidr = "${chomp(data.http.my_ip.response_body)}/32"
 }
 
 # ----------------------------
@@ -231,18 +231,17 @@ resource "aws_db_subnet_group" "mysql_subnets" {
 }
 
 resource "aws_db_instance" "mysql" {
-  allocated_storage    = 20
-  engine               = "mysql"
-  engine_version       = "8.0"
-  instance_class       = "db.t2.micro"
-  name                 = "bankappdb"
-  username             = var.db_user
-  password             = var.db_password
-  multi_az             = true
-  publicly_accessible  = false
-  db_subnet_group_name = aws_db_subnet_group.mysql_subnets.name
+  allocated_storage      = 20
+  engine                 = "mysql"
+  engine_version         = "8.0"
+  instance_class         = "db.t2.micro"
+  username               = var.db_user
+  password               = var.db_password
+  multi_az               = true
+  publicly_accessible    = false
+  db_subnet_group_name   = aws_db_subnet_group.mysql_subnets.name
   vpc_security_group_ids = [aws_security_group.mysql_sg.id]
-  skip_final_snapshot  = true
+  skip_final_snapshot    = true
 }
 
 # ----------------------------
