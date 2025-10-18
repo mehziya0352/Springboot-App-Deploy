@@ -32,6 +32,11 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
+      - name: Setup Backend
+        run: |
+          chmod +x ./create-backend.sh
+          ./create-backend.sh
+
       # Step 4: Terraform init
       - name: Terraform init
         working-directory: ./terraform/
