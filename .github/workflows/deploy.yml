@@ -44,3 +44,37 @@ jobs:
       - name: Terraform apply
         working-directory: ./terraform/
         run: terraform destroy -auto-approve -lock=false
+
+      - name: Save Terraform output
+        working-directory: ./terraform/
+        run: terraform output -json > tfoutput.json
+
+      - name: Upload Terraform output
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfoutput
+          path: terraform/tfoutput.json
+  
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+  
+      - name: Install Ansible & MySQL collection
+        run: |
+          python3 -m pip install --upgrade pip
+          pip install ansible PyMySQL
+          ansible-galaxy collection install community.mysql
+  
+      - name: Generate Ansible inventory
+        run: |
+          python3 scripts/tf-to-inventory.py terraform/tfoutput.json > ansible/inventory.ini
+          cat ansible/inventory.ini
+  
+      - name: Run RDS Setup Playbook
+        working-directory: ./ansible/
+        env:
+          vault_rds_password: ${{ secrets.RDS_PASSWORD }}
+        run: |
+          export ANSIBLE_ROLES_PATH=./roles
+          ansible-playbook -i inventory.ini playbooks/rds.yml --private-key ~/.ssh/id_rsa -vv
