@@ -10,3 +10,6 @@ output "rds_endpoint" {
   description = "RDS endpoint (connect from app servers inside VPC)"
   value       = aws_db_instance.mysql.endpoint
 }
+output "rds_private_ip" {
+  value = aws_db_instance.mysql.address
+}
