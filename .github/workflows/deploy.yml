@@ -98,19 +98,17 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          # Add EC2 to known_hosts
-          until ssh-keyscan -H $APP_PUBLIC_IP >> ~/.ssh/known_hosts 2>/dev/null; do
-            echo "Waiting for SSH to be available..."
-            sleep 15
-          done
-
-      - name: Wait for EC2 SSH to be ready
+       # Step 10: Disable host key checking   
+      - name: Disable host key checking
         run: |
-          until ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ubuntu@$APP_PUBLIC_IP "echo ready"; do
-            echo "Waiting for EC2 SSH..."
-            sleep 15
-          done
+          echo "Host *" > ~/.ssh/config
+          echo "    StrictHostKeyChecking no" >> ~/.ssh/config
+          chmod 600 ~/.ssh/config
 
+      # Step 11: Wait for EC2 SSH to be ready
+      - name: Wait for EC2 SSH to be ready
+        run: sleep 30
+        
       # Step 8: Generate dynamic Ansible inventory
       - name: Generate Ansible inventory
         run: |
