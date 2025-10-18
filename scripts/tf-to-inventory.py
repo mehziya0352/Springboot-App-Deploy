@@ -5,29 +5,32 @@ if len(sys.argv) < 2:
     print("Usage: tf-to-inventory.py path/to/tfoutput.json")
     sys.exit(1)
 
-# Load Terraform JSON output
 with open(sys.argv[1]) as f:
     tf_output = json.load(f)
 
-def extract_value(output_name):
-    """Extract value from Terraform output, handle lists."""
-    if output_name not in tf_output:
-        return None
-    val = tf_output[output_name].get('value')
-    if isinstance(val, list):
-        val = val[0]
-    return val
+def get_first_ip(key):
+    value = tf_output.get(key, {}).get("value")
+    if isinstance(value, list):
+        return value[0]
+    return value
 
-# Extract IPs
-app_ip = extract_value('app_public_ip')
-rds_endpoint = extract_value('rds_private_ip')  # or rds_endpoint if using DNS
+# App server (jump host)
+app_ip = get_first_ip("app_public_ip")
+# RDS private IP
+rds_ip = get_first_ip("rds_private_ip")
 
-# Generate Ansible inventory
-if rds_endpoint and app_ip:
-    print("[rds]")
-    # Use ProxyJump through app server for private RDS
-    print(f"{rds_endpoint} ansible_user=ubuntu ansible_ssh_common_args='-o ProxyJump=ubuntu@{app_ip}'")
+# Generate inventory
+if app_ip:
+    print("[app]")
+    print(f"{app_ip} ansible_user=ubuntu ansible_ssh_private_key_file=~/.ssh/id_rsa")
     print()
+
+if rds_ip:
+    print("[rds]")
+    # Use ProxyJump via app server to reach private RDS
+    print(f"{rds_ip} ansible_user=root ansible_ssh_common_args='-o ProxyJump=ubuntu@{app_ip}'")
+    print()
+
 
 if app_ip:
     print("[app]")
