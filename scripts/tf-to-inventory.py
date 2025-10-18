@@ -7,29 +7,28 @@ if len(sys.argv) < 2:
 
 # Load Terraform JSON output
 with open(sys.argv[1]) as f:
-    obj = json.load(f)
+    tf_output = json.load(f)
 
-def extract_ip(output_name):
-    """Extract IP from Terraform output, handle lists."""
-    if output_name not in obj:
+def extract_value(output_name):
+    """Extract value from Terraform output, handle lists."""
+    if output_name not in tf_output:
         return None
-    ip = obj[output_name].get('value')
-    if isinstance(ip, list):
-        ip = ip[0]
-    return ip
+    val = tf_output[output_name].get('value')
+    if isinstance(val, list):
+        val = val[0]
+    return val
 
-# Extract IPs / endpoints
-app_ip = extract_ip('app_public_ip')
-mysql_endpoint = extract_ip('rds_endpoint')
+# Extract IPs
+app_ip = extract_value('app_public_ip')
+rds_endpoint = extract_value('rds_private_ip')  # or rds_endpoint if using DNS
 
 # Generate Ansible inventory
+if rds_endpoint and app_ip:
+    print("[rds]")
+    # Use ProxyJump through app server for private RDS
+    print(f"{rds_endpoint} ansible_user=ubuntu ansible_ssh_common_args='-o ProxyJump=ubuntu@{app_ip}'")
+    print()
+
 if app_ip:
     print("[app]")
     print(f"{app_ip} ansible_user=ubuntu")
-    print()
-
-if mysql_endpoint:
-    print("[rds]")
-    # No SSH, just for DB connection in playbook
-    print(f"{mysql_endpoint} ansible_user=admin ansible_password='{{ vault_rds_password }}' ansible_port=3306")
-    print()
