@@ -5,7 +5,7 @@ set -e
 # Variables
 # ----------------------------
 REGION="us-east-1"
-BUCKET_NAME="my-springsboot-state-bucket"   # fixed name; change if you want
+BUCKET_NAME="my-springsboot-ste-bucket"   # fixed name; change if you want
 DYNAMODB_TABLE="terraform-locks"
 
 echo "-------------------------------"
