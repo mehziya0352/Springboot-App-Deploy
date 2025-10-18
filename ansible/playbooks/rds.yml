@@ -1,6 +1,7 @@
----
-- name: Configure RDS MySQL
+- name: Setup RDS Database and User
   hosts: rds
-  become: yes
+  gather_facts: false
+  collections:
+    - community.mysql
   roles:
     - rds_setup
