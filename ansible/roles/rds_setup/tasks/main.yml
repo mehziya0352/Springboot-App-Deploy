@@ -1,19 +1,18 @@
----
 - name: Create RDS database
   community.mysql.mysql_db:
     name: "{{ db_name }}"
     state: present
     login_host: "{{ inventory_hostname }}"
-    login_user: root
-    login_password: "{{ vault_rds_password }}"
+    login_user: "{{ db_admin_user }}"
+    login_password: "{{ db_password }}"
 
-- name: Create RDS user
+- name: Create application user
   community.mysql.mysql_user:
-    name: "{{ db_user }}"
-    password: "{{ vault_rds_password }}"
+    name: "{{ db_app_user }}"
+    password: "{{ db_password }}"
     priv: "{{ db_name }}.*:ALL"
     host: "%"
     state: present
     login_host: "{{ inventory_hostname }}"
-    login_user: root
-    login_password: "{{ vault_rds_password }}"
+    login_user: "{{ db_admin_user }}"
+    login_password: "{{ db_password }}"
