@@ -4,6 +4,15 @@ provider "aws" {
 
 data "aws_availability_zones" "available" {}
 
+# Automatically get your public IP
+data "http" "my_ip" {
+  url = "https://checkip.amazonaws.com/"
+}
+
+locals {
+  public_ip_cidr = "${chomp(data.http.my_ip.body)}/32"
+}
+
 # ----------------------------
 # VPC
 # ----------------------------
@@ -62,8 +71,13 @@ resource "aws_internet_gateway" "igw" {
 
 resource "aws_route_table" "public_rt" {
   vpc_id = aws_vpc.main.id
-  route { cidr_block = "0.0.0.0/0"; gateway_id = aws_internet_gateway.igw.id }
-  tags = { Name = "public-rt" }
+  route { 
+      cidr_block = "0.0.0.0/0"
+      gateway_id = aws_internet_gateway.igw.id
+  }
+  tags = {
+    Name = "public-rt" 
+  }
 }
 
 resource "aws_route_table_association" "public_1_assoc" {
@@ -95,7 +109,12 @@ resource "aws_security_group" "alb_sg" {
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
-  egress { from_port=0; to_port=0; protocol="-1"; cidr_blocks=["0.0.0.0/0"] }
+  egress { 
+    from_port=0
+    to_port=0
+    protocol="-1"
+    cidr_blocks=["0.0.0.0/0"] 
+}
 }
 
 # App SG
@@ -112,9 +131,14 @@ resource "aws_security_group" "app_sg" {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = [var.my_ip]
+    cidr_blocks = [local.public_ip_cidr]
   }
-  egress { from_port=0; to_port=0; protocol="-1"; cidr_blocks=["0.0.0.0/0"] }
+  egress { 
+    from_port=0 
+    to_port=0
+    protocol="-1"
+    cidr_blocks=["0.0.0.0/0"] 
+  }
 }
 
 # RDS SG
@@ -127,7 +151,12 @@ resource "aws_security_group" "mysql_sg" {
     protocol        = "tcp"
     security_groups = [aws_security_group.app_sg.id]
   }
-  egress { from_port=0; to_port=0; protocol="-1"; cidr_blocks=["0.0.0.0/0"] }
+  egress { 
+    from_port=0
+    to_port=0
+    protocol="-1"
+    cidr_blocks=["0.0.0.0/0"]
+  }
 }
 
 # ----------------------------
@@ -168,7 +197,9 @@ resource "aws_lb_listener" "http" {
 data "aws_ami" "ubuntu" {
   most_recent = true
   owners      = ["099720109477"]
-  filter { name = "name"; values = ["ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-*"] }
+  filter { 
+    name = "name"
+    values = ["ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-*"] }
 }
 
 resource "aws_instance" "app" {
