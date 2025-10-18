@@ -1,2 +1,2 @@
 key_name     = "mujahed"
-db_password  = "Test@123"
+db_password  = "Test123"
