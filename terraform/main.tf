@@ -2,6 +2,9 @@ provider "aws" {
   region = var.region
 }
 
+# ----------------------------
+# Data Sources
+# ----------------------------
 data "aws_availability_zones" "available" {}
 
 # Automatically get your public IP
@@ -13,6 +16,15 @@ locals {
   public_ip_cidr = "${chomp(data.http.my_ip.response_body)}/32"
 }
 
+data "aws_ami" "ubuntu" {
+  most_recent = true
+  owners      = ["099720109477"]
+  filter {
+    name   = "name"
+    values = ["ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-*"]
+  }
+}
+
 # ----------------------------
 # VPC
 # ----------------------------
@@ -20,7 +32,6 @@ resource "aws_vpc" "main" {
   cidr_block           = "10.0.0.0/16"
   enable_dns_support   = true
   enable_dns_hostnames = true
-
   tags = { Name = "spring-vpc" }
 }
 
@@ -75,9 +86,7 @@ resource "aws_route_table" "public_rt" {
       cidr_block = "0.0.0.0/0"
       gateway_id = aws_internet_gateway.igw.id
   }
-  tags = {
-    Name = "public-rt" 
-  }
+  tags = { Name = "public-rt" }
 }
 
 resource "aws_route_table_association" "public_1_assoc" {
@@ -110,11 +119,11 @@ resource "aws_security_group" "alb_sg" {
     cidr_blocks = ["0.0.0.0/0"]
   }
   egress { 
-    from_port=0
-    to_port=0
-    protocol="-1"
-    cidr_blocks=["0.0.0.0/0"] 
-}
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"] 
+  }
 }
 
 # App SG
@@ -134,10 +143,10 @@ resource "aws_security_group" "app_sg" {
     cidr_blocks = [local.public_ip_cidr]
   }
   egress { 
-    from_port=0 
-    to_port=0
-    protocol="-1"
-    cidr_blocks=["0.0.0.0/0"] 
+    from_port   = 0 
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"] 
   }
 }
 
@@ -152,15 +161,15 @@ resource "aws_security_group" "mysql_sg" {
     security_groups = [aws_security_group.app_sg.id]
   }
   egress { 
-    from_port=0
-    to_port=0
-    protocol="-1"
-    cidr_blocks=["0.0.0.0/0"]
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
   }
 }
 
 # ----------------------------
-# App Layer (2 EC2s + ALB)
+# ALB + Target Group
 # ----------------------------
 resource "aws_lb" "app_alb" {
   name               = "app-alb"
@@ -194,31 +203,94 @@ resource "aws_lb_listener" "http" {
   }
 }
 
-data "aws_ami" "ubuntu" {
-  most_recent = true
-  owners      = ["099720109477"]
-  filter {
-    name   = "name"
-    values = ["ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-*"]
+# ----------------------------
+# Launch Template + ASG for App
+# ----------------------------
+resource "aws_launch_template" "app_lt" {
+  name_prefix   = "app-server-"
+  image_id      = data.aws_ami.ubuntu.id
+  instance_type = var.instance_type
+  key_name      = var.key_name
+
+  network_interfaces {
+    associate_public_ip_address = true
+    security_groups             = [aws_security_group.app_sg.id]
+  }
+
+  tag_specifications {
+    resource_type = "instance"
+    tags = { Name = "app-server" }
   }
 }
 
-resource "aws_instance" "app" {
-  count                     = 2
-  ami                       = data.aws_ami.ubuntu.id
-  instance_type             = var.instance_type
-  key_name                  = var.key_name
-  subnet_id                 = element([aws_subnet.public_1.id, aws_subnet.public_2.id], count.index)
-  vpc_security_group_ids    = [aws_security_group.app_sg.id]
-  associate_public_ip_address = true
-  tags = { Name = "app-server-${count.index}" }
+resource "aws_autoscaling_group" "app_asg" {
+  desired_capacity     = 2
+  min_size             = 2
+  max_size             = 4
+  vpc_zone_identifier  = [aws_subnet.public_1.id, aws_subnet.public_2.id]
+  launch_template {
+    id      = aws_launch_template.app_lt.id
+    version = "$Latest"
+  }
+  target_group_arns = [aws_lb_target_group.app_tg.arn]
+  health_check_type         = "EC2"
+  health_check_grace_period = 30
+  force_delete              = true
+
+  tag {
+    key                 = "Name"
+    value               = "app-server"
+    propagate_at_launch = true
+  }
 }
 
-resource "aws_lb_target_group_attachment" "app_attach" {
-  count            = 2
-  target_group_arn = aws_lb_target_group.app_tg.arn
-  target_id        = aws_instance.app[count.index].id
-  port             = 8080
+# ----------------------------
+# Auto Scaling Policies (CPU-based)
+# ----------------------------
+resource "aws_autoscaling_policy" "scale_out" {
+  name                  = "scale-out-policy"
+  scaling_adjustment     = 1
+  adjustment_type        = "ChangeInCapacity"
+  cooldown               = 300
+  autoscaling_group_name = aws_autoscaling_group.app_asg.name
+}
+
+resource "aws_autoscaling_policy" "scale_in" {
+  name                  = "scale-in-policy"
+  scaling_adjustment     = -1
+  adjustment_type        = "ChangeInCapacity"
+  cooldown               = 300
+  autoscaling_group_name = aws_autoscaling_group.app_asg.name
+}
+
+resource "aws_cloudwatch_metric_alarm" "cpu_high" {
+  alarm_name          = "app-cpu-high"
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+  evaluation_periods  = 2
+  metric_name         = "CPUUtilization"
+  namespace           = "AWS/EC2"
+  period              = 60
+  statistic           = "Average"
+  threshold           = 60
+  alarm_actions       = [aws_autoscaling_policy.scale_out.arn]
+  dimensions = {
+    AutoScalingGroupName = aws_autoscaling_group.app_asg.name
+  }
+}
+
+resource "aws_cloudwatch_metric_alarm" "cpu_low" {
+  alarm_name          = "app-cpu-low"
+  comparison_operator = "LessThanOrEqualToThreshold"
+  evaluation_periods  = 2
+  metric_name         = "CPUUtilization"
+  namespace           = "AWS/EC2"
+  period              = 60
+  statistic           = "Average"
+  threshold           = 20
+  alarm_actions       = [aws_autoscaling_policy.scale_in.arn]
+  dimensions = {
+    AutoScalingGroupName = aws_autoscaling_group.app_asg.name
+  }
 }
 
 # ----------------------------
@@ -234,7 +306,7 @@ resource "aws_db_instance" "mysql" {
   allocated_storage      = 20
   engine                 = "mysql"
   engine_version         = "8.0.32"
-  instance_class         = "db.t3.medium"  # Multi-AZ supported
+  instance_class         = "db.t3.medium"
   username               = var.db_user
   password               = var.db_password
   multi_az               = true
@@ -243,7 +315,6 @@ resource "aws_db_instance" "mysql" {
   vpc_security_group_ids = [aws_security_group.mysql_sg.id]
   skip_final_snapshot    = true
 }
-
 
 # ----------------------------
 # Outputs
