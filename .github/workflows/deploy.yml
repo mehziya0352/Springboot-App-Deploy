@@ -118,8 +118,6 @@ jobs:
       # Step 9: Run RDS Setup Playbook
       - name: Run RDS Setup Playbook
         working-directory: ./ansible/
-        env:
-          vault_rds_password: ${{ secrets.RDS_PASSWORD }}
         run: |
           export ANSIBLE_ROLES_PATH=./roles
           ansible-playbook -i inventory.ini playbooks/rds.yml --private-key ~/.ssh/id_rsa -vv
