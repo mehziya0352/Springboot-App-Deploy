@@ -1,0 +1,6 @@
+---
+- name: Configure RDS MySQL
+  hosts: rds
+  become: yes
+  roles:
+    - rds_setup
